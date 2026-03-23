@@ -1,726 +1,548 @@
+--[[
+    ⚡ QUOTAS HUB - ARSENAL EDITION ⚡
+    Improved & Fixed v2.0
+    Contributors: _dooliee | Chy Sopheakpanha | ជី.សុភ:បញ្ញា
+--]]
+
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- playersService is no longer needed since we use game:GetService("Players") directly.
-
-local targetGui
-pcall(function() targetGui = CoreGui end)
-if not targetGui then targetGui = LocalPlayer:WaitForChild("PlayerGui") end
-
-if targetGui:FindFirstChild("SilentAimHub") then
-	targetGui.SilentAimHub:Destroy()
-end
-
--- Remove any leftover blur
-if Lighting:FindFirstChild("CinematicBlur") then
-	Lighting.CinematicBlur:Destroy()
-end
-
--- Global toggles
-_G.SilentAimEnabled = false
-_G.LegitAimbot      = false
-_G.AutoShoot        = false
-
--- ScreenGui root
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SilentAimHub"
-ScreenGui.Parent = targetGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-------------------------------------------------
--- CYBERPUNK LOADING / WELCOME SCREEN
-------------------------------------------------
-local MainFrame = Instance.new("Frame")
-MainFrame.Name      = "MainFrame"
-MainFrame.Size      = UDim2.new(0, 520, 0, 300)
-MainFrame.Position  = UDim2.new(0.5, -260, 0.5, -150)
-MainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-MainFrame.BackgroundTransparency = 1
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
-MainFrame.Active = true
-
--- Dark-purple cyberpunk gradient
-local MainGradient = Instance.new("UIGradient")
-MainGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0,   Color3.fromRGB(8,  0,  18)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 0,  40)),
-    ColorSequenceKeypoint.new(1,   Color3.fromRGB(5,  0,  12))
+-- Global Configuration
+_G.QuotasConfig = {
+    Aimbot = false,
+    AimbotPart = "Head",
+    Sensitivity = 0.05,
+    FovRadius = 150,
+    FovVisible = true,
+    FovColor = Color3.fromRGB(255, 255, 255),
+    TeamCheck = true,
+    EspEnabled = false,
+    InfJump = false,
+    WalkSpeed = 16,
+    FlySpeed = 50,
+    Flying = false,
+    Noclip = false,
+    SilentAim = false,
+    NoRecoil = false,
+    InfAmmo = false,
+    FireRate = false
 }
-MainGradient.Rotation = 135
-MainGradient.Parent = MainFrame
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 14)
-UICorner.Parent = MainFrame
-
--- Neon purple glowing border
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Parent = MainFrame
-MainStroke.Color  = Color3.fromRGB(180, 0, 255)
-MainStroke.Thickness = 2.5
-MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-MainStroke.Transparency = 1
-
-local StrokeGradient = Instance.new("UIGradient")
-StrokeGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0,    Color3.fromRGB(200,  0, 255)),
-    ColorSequenceKeypoint.new(0.5,  Color3.fromRGB(255, 80, 255)),
-    ColorSequenceKeypoint.new(1,    Color3.fromRGB(120,  0, 200))
-}
-StrokeGradient.Rotation = -45
-StrokeGradient.Parent = MainStroke
-
--- Drop shadow
-local DropShadow = Instance.new("ImageLabel")
-DropShadow.Name = "DropShadow"
-DropShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-DropShadow.Position = UDim2.new(0.5, 0, 0.5, 6)
-DropShadow.Size = UDim2.new(1, 50, 1, 50)
-DropShadow.BackgroundTransparency = 1
-DropShadow.Image = ""
-DropShadow.BackgroundColor3 = Color3.fromRGB(80, 0, 120)
-DropShadow.ZIndex = -1
-DropShadow.Parent = MainFrame
-
--- Dragging
-local dragging, dragInput, dragStart, startPos
-MainFrame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = MainFrame.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-MainFrame.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
-end)
-UserInputService.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		local delta = input.Position - dragStart
-		TweenService:Create(MainFrame, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-		}):Play()
-	end
-end)
-
-------------------------------------------------
--- LOADING SCREEN ELEMENTS  (Cyberpunk theme)
-------------------------------------------------
-local Title = Instance.new("TextLabel")
-Title.Parent = MainFrame
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 0, 0, 18)
-Title.Size = UDim2.new(1, 0, 0, 34)
-Title.Font = Enum.Font.GothamBold
-Title.Text = "⚡  ARSENAL  HUB  ⚡"
-Title.TextColor3 = Color3.fromRGB(220, 80, 255)  -- neon purple
-Title.TextSize = 26
-Title.TextTransparency = 1
-
--- Neon purple glow on title
-local TitleStroke = Instance.new("UIStroke")
-TitleStroke.Parent = Title
-TitleStroke.Color  = Color3.fromRGB(180, 0, 255)
-TitleStroke.Thickness = 2
-TitleStroke.Transparency = 1
-
-local SubTitle = Instance.new("TextLabel")
-SubTitle.Parent = MainFrame
-SubTitle.BackgroundTransparency = 1
-SubTitle.Position = UDim2.new(0, 0, 0, 55)
-SubTitle.Size = UDim2.new(1, 0, 0, 18)
-SubTitle.Font = Enum.Font.Gotham
-SubTitle.Text = "CYBERPUNK EDITION  |  v2.0"
-SubTitle.TextColor3 = Color3.fromRGB(160, 0, 220)
-SubTitle.TextSize = 13
-SubTitle.TextTransparency = 1
-
--- Credits label (multi-credit)
-local Credits = Instance.new("TextLabel")
-Credits.Parent = MainFrame
-Credits.BackgroundTransparency = 1
-Credits.Position = UDim2.new(0, 0, 0, 75)
-Credits.Size = UDim2.new(1, 0, 0, 18)
-Credits.Font = Enum.Font.Gotham
-Credits.Text = "Credits: _dooliee  |  Chy Sopheakpanha  |  ជី.សុភ:បញ្ញា"
-Credits.TextColor3 = Color3.fromRGB(190, 100, 255)
-Credits.TextSize = 12
-Credits.TextTransparency = 1
-
--- Loading bar background
-local BarBg = Instance.new("Frame")
-BarBg.Parent = MainFrame
-BarBg.BackgroundColor3 = Color3.fromRGB(30, 0, 50)
-BarBg.BackgroundTransparency = 1
-BarBg.BorderSizePixel = 0
-BarBg.Position = UDim2.new(0.08, 0, 0.78, 0)
-BarBg.Size = UDim2.new(0.84, 0, 0, 8)
-
-local BarBgCorner = Instance.new("UICorner")
-BarBgCorner.CornerRadius = UDim.new(1, 0)
-BarBgCorner.Parent = BarBg
-
--- Neon purple fill
-local BarFill = Instance.new("Frame")
-BarFill.Parent = BarBg
-BarFill.BackgroundColor3 = Color3.fromRGB(200, 0, 255)
-BarFill.BackgroundTransparency = 1
-BarFill.BorderSizePixel = 0
-BarFill.Size = UDim2.new(0, 0, 1, 0)
-
-local BarFillGradient = Instance.new("UIGradient")
-BarFillGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0,    Color3.fromRGB(120, 0, 200)),
-    ColorSequenceKeypoint.new(0.5,  Color3.fromRGB(220, 80, 255)),
-    ColorSequenceKeypoint.new(1,    Color3.fromRGB(180, 0, 255))
-}
-BarFillGradient.Parent = BarFill
-
-local BarFillCorner = Instance.new("UICorner")
-BarFillCorner.CornerRadius = UDim.new(1, 0)
-BarFillCorner.Parent = BarFill
-
--- Neon border on bar bg
-local BarStroke = Instance.new("UIStroke")
-BarStroke.Parent = BarBg
-BarStroke.Color = Color3.fromRGB(180, 0, 255)
-BarStroke.Thickness = 1
-BarStroke.Transparency = 1
-
--- Status text under bar
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Parent = MainFrame
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0.88, 0)
-StatusLabel.Size = UDim2.new(1, 0, 0, 16)
-StatusLabel.Font = Enum.Font.Code
-StatusLabel.Text = "> INITIALIZING SYSTEMS..."
-StatusLabel.TextColor3 = Color3.fromRGB(160, 0, 220)
-StatusLabel.TextSize = 12
-StatusLabel.TextTransparency = 1
-
-------------------------------------------------
--- FADE-IN ANIMATIONS
-------------------------------------------------
-local fadeInfo = TweenInfo.new(1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-
-TweenService:Create(MainFrame,   fadeInfo, {BackgroundTransparency = 0.08}):Play()
-TweenService:Create(MainStroke,  fadeInfo, {Transparency = 0}):Play()
-TweenService:Create(TitleStroke, fadeInfo, {Transparency = 0}):Play()
-TweenService:Create(Title,       fadeInfo, {TextTransparency = 0}):Play()
-TweenService:Create(SubTitle,    fadeInfo, {TextTransparency = 0}):Play()
-TweenService:Create(Credits,     fadeInfo, {TextTransparency = 0}):Play()
-TweenService:Create(BarBg,       fadeInfo, {BackgroundTransparency = 0.4}):Play()
-TweenService:Create(BarStroke,   fadeInfo, {Transparency = 0}):Play()
-TweenService:Create(BarFill,     fadeInfo, {BackgroundTransparency = 0}):Play()
-TweenService:Create(StatusLabel, fadeInfo, {TextTransparency = 0}):Play()
-
-task.wait(1)
-StatusLabel.Text = "> LOADING MODULES..."
-TweenService:Create(BarFill, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Size = UDim2.new(0.4, 0, 1, 0)}):Play()
-task.wait(1.5)
-StatusLabel.Text = "> INJECTING AIMBOT ENGINE..."
-TweenService:Create(BarFill, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Size = UDim2.new(0.75, 0, 1, 0)}):Play()
-task.wait(2)
-StatusLabel.Text = "> FINALIZING..."
-TweenService:Create(BarFill, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-task.wait(1)
-
-Title.Text = "⚡  ARSENAL  HUB  READY  ⚡"
-StatusLabel.Text = "> Press [Right Shift] to toggle menu"
-task.wait(1)
-
--- Fade out loading elements
-TweenService:Create(BarBg,     TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-TweenService:Create(BarStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
-TweenService:Create(BarFill,   TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-task.wait(0.5)
-BarBg:Destroy()
-
-------------------------------------------------
--- TAB BAR  (Home | Hacks)
-------------------------------------------------
-local TabBar = Instance.new("Frame")
-TabBar.Name = "TabBar"
-TabBar.Parent = MainFrame
-TabBar.BackgroundTransparency = 1
-TabBar.Position = UDim2.new(0, 0, 0, 50)
-TabBar.Size = UDim2.new(1, 0, 0, 36)
-
-local function makeTab(label, xScale)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.48, 0, 1, 0)
-    btn.Position = UDim2.new(xScale, 0, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(25, 0, 45)
-    btn.BackgroundTransparency = 0.3
-    btn.Text = label
-    btn.TextColor3 = Color3.fromRGB(220, 80, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 15
-    btn.Parent = TabBar
-
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 8)
-    c.Parent = btn
-
-    local s = Instance.new("UIStroke")
-    s.Color = Color3.fromRGB(180, 0, 255)
-    s.Thickness = 1.5
-    s.Parent = btn
-
-    return btn
+-- Utility Functions
+local function MakeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 end
 
-local HomeTab  = makeTab("🏠 HOME",  0.01)
-local HacksTab = makeTab("⚡ HACKS", 0.51)
+-- UI Creation
+local Main = Instance.new("ScreenGui")
+Main.Name = "QuotasHub"
+Main.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+Main.ResetOnSpawn = false
 
-------------------------------------------------
--- HOME PAGE PANEL
-------------------------------------------------
-local HomePanel = Instance.new("Frame")
-HomePanel.Name = "HomePanel"
-HomePanel.Parent = MainFrame
-HomePanel.BackgroundTransparency = 1
-HomePanel.Position = UDim2.new(0, 0, 0, 92)
-HomePanel.Size = UDim2.new(1, 0, 1, -92)
+-- Loading Screen
+local Loader = Instance.new("Frame")
+Loader.Name = "Loader"
+Loader.Size = UDim2.new(0, 0, 0, 80)
+Loader.Position = UDim2.new(0.5, 0, 0.5, 0)
+Loader.AnchorPoint = Vector2.new(0.5, 0.5)
+Loader.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Loader.BackgroundTransparency = 0.1
+Loader.Parent = Main
 
--- Profile card
-local ProfileCard = Instance.new("Frame")
-ProfileCard.Parent = HomePanel
-ProfileCard.BackgroundColor3 = Color3.fromRGB(18, 0, 35)
-ProfileCard.BackgroundTransparency = 0.1
-ProfileCard.BorderSizePixel = 0
-ProfileCard.Position = UDim2.new(0.04, 0, 0.04, 0)
-ProfileCard.Size = UDim2.new(0.92, 0, 0.92, 0)
+local LoaderCorner = Instance.new("UICorner")
+LoaderCorner.CornerRadius = UDim.new(0, 10)
+LoaderCorner.Parent = Loader
 
-local PC = Instance.new("UICorner")
-PC.CornerRadius = UDim.new(0, 10)
-PC.Parent = ProfileCard
+local LoaderStroke = Instance.new("UIStroke")
+LoaderStroke.Color = Color3.fromRGB(80, 80, 255)
+LoaderStroke.Thickness = 2
+LoaderStroke.Parent = Loader
 
-local PS = Instance.new("UIStroke")
-PS.Color = Color3.fromRGB(200, 0, 255)
-PS.Thickness = 1.5
-PS.Parent = ProfileCard
+local LoaderTitle = Instance.new("TextLabel")
+LoaderTitle.Size = UDim2.new(1, 0, 0.6, 0)
+LoaderTitle.BackgroundTransparency = 1
+LoaderTitle.Text = "\"quotas hub\""
+LoaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoaderTitle.Font = Enum.Font.JosefinSans
+LoaderTitle.TextSize = 24
+LoaderTitle.TextTransparency = 1
+LoaderTitle.Parent = Loader
 
--- Neon gold player name
-local PlayerNameLabel = Instance.new("TextLabel")
-PlayerNameLabel.Parent = ProfileCard
-PlayerNameLabel.BackgroundTransparency = 1
-PlayerNameLabel.Position = UDim2.new(0, 10, 0, 10)
-PlayerNameLabel.Size = UDim2.new(1, -20, 0, 32)
-PlayerNameLabel.Font = Enum.Font.GothamBold
-PlayerNameLabel.Text = "⭐ " .. LocalPlayer.Name .. " ⭐"
-PlayerNameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)   -- neon gold
-PlayerNameLabel.TextSize = 22
-PlayerNameLabel.TextXAlignment = Enum.TextXAlignment.Center
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Size = UDim2.new(0.8, 0, 0, 6)
+ProgressBar.Position = UDim2.new(0.1, 0, 0.75, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ProgressBar.BorderSizePixel = 0
+ProgressBar.BackgroundTransparency = 1
+ProgressBar.Parent = Loader
 
-local NameGlow = Instance.new("UIStroke")
-NameGlow.Color = Color3.fromRGB(255, 180, 0)
-NameGlow.Thickness = 2
-NameGlow.Parent = PlayerNameLabel
+local ProgressFill = Instance.new("Frame")
+ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+ProgressFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ProgressFill.BorderSizePixel = 0
+ProgressFill.Parent = ProgressBar
 
--- Display name line
-local DisplayNameLabel = Instance.new("TextLabel")
-DisplayNameLabel.Parent = ProfileCard
-DisplayNameLabel.BackgroundTransparency = 1
-DisplayNameLabel.Position = UDim2.new(0, 10, 0, 44)
-DisplayNameLabel.Size = UDim2.new(1, -20, 0, 20)
-DisplayNameLabel.Font = Enum.Font.Gotham
-DisplayNameLabel.Text = "@" .. LocalPlayer.Name
-DisplayNameLabel.TextColor3 = Color3.fromRGB(180, 80, 255)
-DisplayNameLabel.TextSize = 13
-DisplayNameLabel.TextXAlignment = Enum.TextXAlignment.Center
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(1, 0)
+FillCorner.Parent = ProgressFill
 
--- Divider line
-local Divider = Instance.new("Frame")
-Divider.Parent = ProfileCard
-Divider.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-Divider.BackgroundTransparency = 0.5
-Divider.BorderSizePixel = 0
-Divider.Position = UDim2.new(0.05, 0, 0, 70)
-Divider.Size = UDim2.new(0.9, 0, 0, 1)
+local BarCorner = Instance.new("UICorner")
+BarCorner.CornerRadius = UDim.new(1, 0)
+BarCorner.Parent = ProgressBar
 
--- Stats section
-local function makeStatRow(labelText, yOff)
-    local row = Instance.new("Frame")
-    row.Parent = ProfileCard
-    row.BackgroundTransparency = 1
-    row.Position = UDim2.new(0.05, 0, 0, yOff)
-    row.Size = UDim2.new(0.9, 0, 0, 22)
+-- Loader Animation
+task.spawn(function()
+    TweenService:Create(Loader, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 250, 0, 80)}):Play()
+    task.wait(1)
+    TweenService:Create(LoaderTitle, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+    ProgressBar.BackgroundTransparency = 0
+    task.wait(0.5)
+    TweenService:Create(ProgressFill, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+    task.wait(2.2)
+    TweenService:Create(Loader, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(LoaderTitle, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    TweenService:Create(ProgressBar, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(ProgressFill, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(LoaderStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    task.wait(0.5)
+    Loader.Visible = false
+end)
 
-    local key = Instance.new("TextLabel")
-    key.Parent = row
-    key.BackgroundTransparency = 1
-    key.Position = UDim2.new(0, 0, 0, 0)
-    key.Size = UDim2.new(0.55, 0, 1, 0)
-    key.Font = Enum.Font.Gotham
-    key.Text = labelText
-    key.TextColor3 = Color3.fromRGB(180, 100, 255)
-    key.TextSize = 13
-    key.TextXAlignment = Enum.TextXAlignment.Left
+-- Main Menu
+local Basic = Instance.new("Frame")
+Basic.Name = "MainFrame"
+Basic.Size = UDim2.new(0, 350, 0, 400)
+Basic.Position = UDim2.new(0.5, -175, 0.5, -200)
+Basic.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Basic.BackgroundTransparency = 0.2
+Basic.Visible = false
+Basic.Parent = Main
+MakeDraggable(Basic)
 
-    local val = Instance.new("TextLabel")
-    val.Name = "Value"
-    val.Parent = row
-    val.BackgroundTransparency = 1
-    val.Position = UDim2.new(0.55, 0, 0, 0)
-    val.Size = UDim2.new(0.45, 0, 1, 0)
-    val.Font = Enum.Font.GothamBold
-    val.Text = "..."
-    val.TextColor3 = Color3.fromRGB(255, 215, 0)  -- neon gold values
-    val.TextSize = 13
-    val.TextXAlignment = Enum.TextXAlignment.Right
+local BasicCorner = Instance.new("UICorner")
+BasicCorner.CornerRadius = UDim.new(0, 12)
+BasicCorner.Parent = Basic
 
-    return val
+local TitleFrame = Instance.new("Frame")
+TitleFrame.Size = UDim2.new(1, 0, 0, 35)
+TitleFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TitleFrame.BackgroundTransparency = 0.5
+TitleFrame.Parent = Basic
+
+local TFCorner = Instance.new("UICorner")
+TFCorner.CornerRadius = UDim.new(0, 12)
+TFCorner.Parent = TitleFrame
+
+local QuotasName = Instance.new("TextLabel")
+QuotasName.Size = UDim2.new(1, 0, 1, 0)
+QuotasName.BackgroundTransparency = 1
+QuotasName.Text = "\"Quotas Hub v2.0\""
+QuotasName.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuotasName.Font = Enum.Font.JosefinSans
+QuotasName.TextSize = 18
+QuotasName.Parent = TitleFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -30, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Parent = TitleFrame
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
+
+-- Content Area
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -20, 1, -50)
+Content.Position = UDim2.new(0, 10, 0, 40)
+Content.BackgroundTransparency = 1
+Content.CanvasSize = UDim2.new(0, 0, 2, 0)
+Content.ScrollBarThickness = 2
+Content.Parent = Basic
+
+local UIList = Instance.new("UIListLayout")
+UIList.Padding = UDim.new(0, 8)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Parent = Content
+
+-- Toggle Helper
+local function CreateToggle(name, description, configKey, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 45)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Parent = Content
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(0.7, 0, 0.6, 0)
+    Title.Position = UDim2.new(0, 10, 0, 5)
+    Title.BackgroundTransparency = 1
+    Title.Text = name
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Font = Enum.Font.GothamMedium
+    Title.TextSize = 14
+    Title.Parent = Frame
+
+    local Desc = Instance.new("TextLabel")
+    Desc.Size = UDim2.new(0.7, 0, 0.4, 0)
+    Desc.Position = UDim2.new(0, 10, 0.6, -5)
+    Desc.BackgroundTransparency = 1
+    Desc.Text = description
+    Desc.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    Desc.Font = Enum.Font.Gotham
+    Desc.TextSize = 10
+    Desc.Parent = Frame
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 60, 0, 25)
+    ToggleBtn.Position = UDim2.new(1, -70, 0.5, -12)
+    ToggleBtn.BackgroundColor3 = _G.QuotasConfig[configKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(80, 80, 80)
+    ToggleBtn.Text = _G.QuotasConfig[configKey] and "ON" or "OFF"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.Font = Enum.Font.GothamBold
+    ToggleBtn.TextSize = 12
+    ToggleBtn.Parent = Frame
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 5)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        _G.QuotasConfig[configKey] = not _G.QuotasConfig[configKey]
+        ToggleBtn.Text = _G.QuotasConfig[configKey] and "ON" or "OFF"
+        ToggleBtn.BackgroundColor3 = _G.QuotasConfig[configKey] and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(80, 80, 80)
+        if callback then callback(_G.QuotasConfig[configKey]) end
+    end)
 end
 
-local valHealth  = makeStatRow("❤  Health",    80)
-local valTeam    = makeStatRow("🏴  Team",     106)
-local valKills   = makeStatRow("💀  Kills",    132)
-local valDeaths  = makeStatRow("🪦  Deaths",   158)
+-- Slider Helper
+local function CreateSlider(name, min, max, configKey, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 55)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Parent = Content
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
--- Refresh stat values every second
-coroutine.resume(coroutine.create(function()
-    while task.wait(1) do
-        pcall(function()
-            local char = LocalPlayer.Character
-            local hum  = char and char:FindFirstChild("Humanoid")
-            valHealth.Text = hum and math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth) or "N/A"
-            valTeam.Text   = tostring(LocalPlayer.Team and LocalPlayer.Team.Name or "None")
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(0.7, 0, 0, 20)
+    Title.Position = UDim2.new(0, 10, 0, 5)
+    Title.BackgroundTransparency = 1
+    Title.Text = name .. ": " .. _G.QuotasConfig[configKey]
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Font = Enum.Font.GothamMedium
+    Title.TextSize = 14
+    Title.Parent = Frame
 
-            -- Try to grab leaderstat kills/deaths
-            local ls = LocalPlayer:FindFirstChild("leaderstats")
-            if ls then
-                local k = ls:FindFirstChild("Kills") or ls:FindFirstChild("KOs")
-                local d = ls:FindFirstChild("Deaths") or ls:FindFirstChild("WOs") or ls:FindFirstChild("Falls")
-                valKills.Text  = k and tostring(k.Value) or "N/A"
-                valDeaths.Text = d and tostring(d.Value) or "N/A"
+    local SliderBG = Instance.new("Frame")
+    SliderBG.Size = UDim2.new(1, -20, 0, 6)
+    SliderBG.Position = UDim2.new(0, 10, 0, 35)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    SliderBG.Parent = Frame
+    Instance.new("UICorner", SliderBG).CornerRadius = UDim.new(1, 0)
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((_G.QuotasConfig[configKey] - min) / (max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(80, 80, 255)
+    SliderFill.Parent = SliderBG
+    Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+
+    local function UpdateSlider(input)
+        local pos = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+        local val = math.floor(min + (max - min) * pos)
+        _G.QuotasConfig[configKey] = val
+        SliderFill.Size = UDim2.new(pos, 0, 1, 0)
+        Title.Text = name .. ": " .. val
+        if callback then callback(val) end
+    end
+
+    local dragging = false
+    SliderBG.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            UpdateSlider(input)
+        end
+    end)
+    SliderBG.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            UpdateSlider(input)
+        end
+    end)
+end
+
+-- Initialize Controls
+CreateToggle("Aimbot", "Smoothly aims at the closest player", "Aimbot")
+CreateSlider("Aimbot Field-of-View", 10, 500, "FovRadius")
+CreateToggle("Draw FOV", "Shows the aimbot target radius", "FovVisible")
+CreateToggle("Team Check", "If enabled, aimbot ignores teammates", "TeamCheck")
+CreateToggle("Player ESP", "Shows boxes and names on players", "EspEnabled")
+CreateToggle("Hitbox Expander", "Makes enemy hitboxes larger (OP)", "SilentAim")
+CreateToggle("Infinite Jump", "Allows jumping in mid-air", "InfJump")
+CreateSlider("WalkSpeed", 16, 250, "WalkSpeed", function(v)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = v
+    end
+end)
+CreateToggle("Fly Mode", "Allows you to fly (WASD + Space/Ctrl)", "Flying")
+CreateToggle("Noclip", "Walk through walls", "Noclip")
+CreateToggle("No Recoil", "Removes weapon recoil & spread", "NoRecoil")
+CreateToggle("Infinite Ammo", "Gives you 999 ammo", "InfAmmo")
+CreateToggle("Rapid Fire", "Insane fire rate", "FireRate")
+
+-- Menu Toggle Loop
+task.wait(4)
+Basic.Visible = true
+local MenuToggled = true
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.RightShift then
+        MenuToggled = not MenuToggled
+        Basic.Visible = MenuToggled
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Main:Destroy()
+end)
+
+-- FEATURES IMPLEMENTATION
+
+-- ESP Logic
+local function CreateEsp(player)
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = Color3.fromRGB(255, 255, 255)
+    Box.Thickness = 1
+    Box.Filled = false
+
+    local Name = Drawing.new("Text")
+    Name.Visible = false
+    Name.Color = Color3.fromRGB(255, 255, 255)
+    Name.Size = 14
+    Name.Center = true
+    Name.Outline = true
+
+    local Tracer = Drawing.new("Line")
+    Tracer.Visible = false
+    Tracer.Color = Color3.fromRGB(255, 255, 255)
+    Tracer.Thickness = 1
+
+    local function Update()
+        local c = RunService.RenderStepped:Connect(function()
+            if _G.QuotasConfig.EspEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player ~= LocalPlayer then
+                if _G.QuotasConfig.TeamCheck and player.Team == LocalPlayer.Team then
+                    Box.Visible = false
+                    Name.Visible = false
+                    Tracer.Visible = false
+                    return
+                end
+
+                local Vector, OnScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                if OnScreen then
+                    local Size = Vector3.new(2, 3, 0) * (Camera.ViewportSize.Y / (Vector.Z * 2 * math.tan(math.rad(Camera.FieldOfView / 2))))
+                    Box.Size = Vector2.new(Size.X, Size.Y)
+                    Box.Position = Vector2.new(Vector.X - Size.X / 2, Vector.Y - Size.Y / 2)
+                    Box.Visible = true
+                    Box.Color = player.TeamColor.Color
+
+                    Name.Text = player.Name .. " [" .. math.floor(player.Character.Humanoid.Health) .. "]"
+                    Name.Position = Vector2.new(Vector.X, Vector.Y - Size.Y / 2 - 15)
+                    Name.Visible = true
+                    Name.Color = Color3.fromRGB(255, 255, 255)
+
+                    Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    Tracer.To = Vector2.new(Vector.X, Vector.Y + Size.Y / 2)
+                    Tracer.Visible = true
+                    Tracer.Color = player.TeamColor.Color
+                else
+                    Box.Visible = false
+                    Name.Visible = false
+                    Tracer.Visible = false
+                end
             else
-                valKills.Text  = "N/A"
-                valDeaths.Text = "N/A"
+                Box.Visible = false
+                Name.Visible = false
+                Tracer.Visible = false
+                if not player.Parent then
+                    Box:Remove()
+                    Name:Remove()
+                    Tracer:Remove()
+                end
             end
         end)
     end
-end))
-
--- Credits footer
-local CreditsHome = Instance.new("TextLabel")
-CreditsHome.Parent = ProfileCard
-CreditsHome.BackgroundTransparency = 1
-CreditsHome.Position = UDim2.new(0, 0, 1, -22)
-CreditsHome.Size = UDim2.new(1, 0, 0, 18)
-CreditsHome.Font = Enum.Font.Gotham
-CreditsHome.Text = "Credits: _dooliee  |  Chy Sopheakpanha  |  ជី.សុភ:បញ្ញា"
-CreditsHome.TextColor3 = Color3.fromRGB(150, 0, 200)
-CreditsHome.TextSize = 11
-CreditsHome.TextXAlignment = Enum.TextXAlignment.Center
-
-------------------------------------------------
--- HACKS PANEL
-------------------------------------------------
-local HacksPanel = Instance.new("Frame")
-HacksPanel.Name = "HacksPanel"
-HacksPanel.Parent = MainFrame
-HacksPanel.BackgroundTransparency = 1
-HacksPanel.Position = UDim2.new(0, 0, 0, 92)
-HacksPanel.Size = UDim2.new(1, 0, 1, -92)
-HacksPanel.Visible = false  -- start hidden; Home is default
-
-------------------------------------------------
--- TAB SWITCHING
-------------------------------------------------
-HomeTab.MouseButton1Click:Connect(function()
-    HomePanel.Visible  = true
-    HacksPanel.Visible = false
-    HomeTab.BackgroundTransparency  = 0.1
-    HacksTab.BackgroundTransparency = 0.5
-end)
-
-HacksTab.MouseButton1Click:Connect(function()
-    HacksPanel.Visible = true
-    HomePanel.Visible  = false
-    HacksTab.BackgroundTransparency = 0.1
-    HomeTab.BackgroundTransparency  = 0.5
-end)
-
--- Default: Home visible
-HomePanel.Visible  = true
-HacksPanel.Visible = false
-
-------------------------------------------------
--- HACK BUTTONS (inside HacksPanel)
-------------------------------------------------
-local function createPremiumButton(name, yPos)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.8, 0, 0, 46)
-    btn.Position = UDim2.new(0.1, 0, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(18, 0, 35)
-    btn.Text = name .. ": OFF"
-    btn.TextColor3 = Color3.fromRGB(255, 80, 120)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 17
-    btn.BackgroundTransparency = 0.15
-    btn.Parent = HacksPanel
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 10)
-    btnCorner.Parent = btn
-
-    local btnStroke = Instance.new("UIStroke")
-    btnStroke.Color = Color3.fromRGB(255, 80, 120)
-    btnStroke.Thickness = 2
-    btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    btnStroke.Parent = btn
-
-    return btn, btnStroke
+    task.spawn(Update)
 end
 
-local SilentBtn,    SilentStroke    = createPremiumButton("Hitbox Expander", 10)
-local LegitBtn,     LegitStroke     = createPremiumButton("Legit Aimbot",    68)
-local AutoShootBtn, AutoShootStroke = createPremiumButton("Auto Shoot",      126)
+for _, v in pairs(Players:GetPlayers()) do CreateEsp(v) end
+Players.PlayerAdded:Connect(CreateEsp)
 
--- Hacks panel credits footer
-local HacksCredits = Instance.new("TextLabel")
-HacksCredits.Parent = HacksPanel
-HacksCredits.BackgroundTransparency = 1
-HacksCredits.Position = UDim2.new(0, 0, 1, -22)
-HacksCredits.Size = UDim2.new(1, 0, 0, 18)
-HacksCredits.Font = Enum.Font.Gotham
-HacksCredits.Text = "Credits: _dooliee  |  Chy Sopheakpanha  |  ជី.សុភ:បញ្ញា"
-HacksCredits.TextColor3 = Color3.fromRGB(150, 0, 200)
-HacksCredits.TextSize = 11
-HacksCredits.TextXAlignment = Enum.TextXAlignment.Center
+-- Aimbot Logic
+local FovCircle = Drawing.new("Circle")
+FovCircle.Color = Color3.fromRGB(255, 255, 255)
+FovCircle.Thickness = 1
+FovCircle.NumSides = 64
+FovCircle.Filled = false
 
-------------------------------------------------
--- BUTTON TOGGLE VISUALS
-------------------------------------------------
-local function toggleVisuals(enabled, button, stroke, baseName, yPos)
-    if enabled then
-        button.TextColor3 = Color3.fromRGB(80, 255, 120)
-        button.Text = baseName .. ": ON"
-        TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(80, 255, 120)}):Play()
-    else
-        button.TextColor3 = Color3.fromRGB(255, 80, 120)
-        button.Text = baseName .. ": OFF"
-        TweenService:Create(stroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(255, 80, 120)}):Play()
+local function GetClosest()
+    local target = nil
+    local dist = _G.QuotasConfig.FovRadius
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(_G.QuotasConfig.AimbotPart) and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            if _G.QuotasConfig.TeamCheck and v.Team == LocalPlayer.Team then continue end
+            local pos, screen = Camera:WorldToViewportPoint(v.Character[_G.QuotasConfig.AimbotPart].Position)
+            if screen then
+                local mDist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                if mDist < dist then
+                    dist = mDist
+                    target = v
+                end
+            end
+        end
     end
-    TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(0.76, 0, 0, 42), Position = UDim2.new(0.12, 0, 0, yPos+2)}):Play()
-    task.wait(0.1)
-    TweenService:Create(button, TweenInfo.new(0.15, Enum.EasingStyle.Bounce), {Size = UDim2.new(0.8, 0, 0, 46), Position = UDim2.new(0.1, 0, 0, yPos)}):Play()
+    return target
 end
 
-SilentBtn.MouseButton1Click:Connect(function()
-    _G.SilentAimEnabled = not _G.SilentAimEnabled
-    toggleVisuals(_G.SilentAimEnabled, SilentBtn, SilentStroke, "Hitbox Expander", 10)
-    if not _G.SilentAimEnabled then
-        pcall(function()
-            for _,v in pairs(Players:GetPlayers()) do
+RunService.RenderStepped:Connect(function()
+    FovCircle.Visible = _G.QuotasConfig.FovVisible
+    FovCircle.Radius = _G.QuotasConfig.FovRadius
+    FovCircle.Position = UserInputService:GetMouseLocation()
+
+    if _G.QuotasConfig.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetClosest()
+        if target then
+            local goal = CFrame.new(Camera.CFrame.Position, target.Character[_G.QuotasConfig.AimbotPart].Position)
+            Camera.CFrame = Camera.CFrame:Lerp(goal, _G.QuotasConfig.Sensitivity)
+        end
+    end
+end)
+
+-- Hitbox Expander (Silent Aim)
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.QuotasConfig.SilentAim then
+            for _, v in pairs(Players:GetPlayers()) do
                 if v ~= LocalPlayer and v.Character then
-                    local function resetPart(name, size)
-                        local p = v.Character:FindFirstChild(name)
-                        if p then
-                            p.Size = size
-                            p.Transparency = 0
-                            p.CanCollide = true
+                    for _, part in pairs(v.Character:GetChildren()) do
+                        if part:IsA("BasePart") and (part.Name:find("Leg") or part.Name:find("Arm") or part.Name == "Head" or part.Name == "HumanoidRootPart") then
+                            part.Size = Vector3.new(10, 10, 10)
+                            part.Transparency = 0.7
+                            part.CanCollide = false
                         end
                     end
-                    resetPart("RightUpperLeg", Vector3.new(1, 2, 1))
-                    resetPart("LeftUpperLeg", Vector3.new(1, 2, 1))
-                    resetPart("HeadHB", Vector3.new(2, 1, 1))
-                    resetPart("HumanoidRootPart", Vector3.new(2, 2, 1))
+                end
+            end
+        end
+    end
+end)
+
+-- Weapon Mods Loop (ONE LOOP ONLY)
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            local rs = game:GetService("ReplicatedStorage")
+            if _G.QuotasConfig.NoRecoil or _G.QuotasConfig.FireRate then
+                for _, v in pairs(rs:GetDescendants()) do
+                    if _G.QuotasConfig.NoRecoil then
+                        if v.Name == "RecoilControl" or v.Name == "MaxSpread" or v.Name == "MinSpread" then v.Value = 0 end
+                    end
+                    if _G.QuotasConfig.FireRate then
+                        if v.Name == "FireRate" then v.Value = 0.02 end
+                        if v.Name == "Auto" then v.Value = true end
+                    end
+                end
+            end
+            if _G.QuotasConfig.InfAmmo then
+                local gui = LocalPlayer.PlayerGui:FindFirstChild("GUI")
+                if gui and gui:FindFirstChild("Client") and gui.Client:FindFirstChild("Variables") then
+                    if gui.Client.Variables:FindFirstChild("ammocount") then gui.Client.Variables.ammocount.Value = 999 end
+                    if gui.Client.Variables:FindFirstChild("ammocount2") then gui.Client.Variables.ammocount2.Value = 999 end
                 end
             end
         end)
     end
 end)
 
-LegitBtn.MouseButton1Click:Connect(function()
-    _G.LegitAimbot = not _G.LegitAimbot
-    toggleVisuals(_G.LegitAimbot, LegitBtn, LegitStroke, "Legit Aimbot", 68)
-end)
-
-AutoShootBtn.MouseButton1Click:Connect(function()
-    _G.AutoShoot = not _G.AutoShoot
-    toggleVisuals(_G.AutoShoot, AutoShootBtn, AutoShootStroke, "Auto Shoot", 126)
-end)
-
--- Hide / Show Menu via Right Shift
-UserInputService.InputBegan:Connect(function(input, gp)
-	if not gp and input.KeyCode == Enum.KeyCode.RightShift then
-		MainFrame.Visible = not MainFrame.Visible
-	end
-end)
-
-------------------------------------------------
--- HACK LOOPS
-------------------------------------------------
-
--- ① Hitbox Expander
-coroutine.resume(coroutine.create(function()
-	while task.wait(1) do
-		if _G.SilentAimEnabled then
-			pcall(function()
-				for _,v in pairs(Players:GetPlayers()) do
-					if v.Name ~= LocalPlayer.Name and v.Character then
-						if v.Character:FindFirstChild("RightUpperLeg") then
-							v.Character.RightUpperLeg.CanCollide = false
-							v.Character.RightUpperLeg.Transparency = 1
-							v.Character.RightUpperLeg.Size = Vector3.new(13, 13, 13)
-						end
-						if v.Character:FindFirstChild("LeftUpperLeg") then
-							v.Character.LeftUpperLeg.CanCollide = false
-							v.Character.LeftUpperLeg.Transparency = 1
-							v.Character.LeftUpperLeg.Size = Vector3.new(13, 13, 13)
-						end
-						if v.Character:FindFirstChild("HeadHB") then
-							v.Character.HeadHB.CanCollide = false
-							v.Character.HeadHB.Transparency = 1
-							v.Character.HeadHB.Size = Vector3.new(13, 13, 13)
-						end
-						if v.Character:FindFirstChild("HumanoidRootPart") then
-							v.Character.HumanoidRootPart.CanCollide = false
-							v.Character.HumanoidRootPart.Transparency = 1
-							v.Character.HumanoidRootPart.Size = Vector3.new(13, 13, 13)
-						end
-					end
-				end
-			end)
-		end
-	end
-end))
-
--- ② Smooth Legit Aimbot + Auto Shoot core
-local Camera = workspace.CurrentCamera
-
--- ── Wall check ──
-local function isVisible(targetPart)
-    local rayOrigin    = Camera.CFrame.Position
-    local rayDirection = (targetPart.Position - rayOrigin)
-    local rp = RaycastParams.new()
-    rp.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
-    rp.FilterType = Enum.RaycastFilterType.Exclude
-    return workspace:Raycast(rayOrigin, rayDirection, rp) == nil
+-- Character Loops (Fly, Noclip, Speed, Jump)
+local function OnChar(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if _G.QuotasConfig.WalkSpeed ~= 16 then hum.WalkSpeed = _G.QuotasConfig.WalkSpeed end
+    end)
+    
+    UserInputService.JumpRequest:Connect(function()
+        if _G.QuotasConfig.InfJump then hum:ChangeState("Jumping") end
+    end)
 end
 
--- ── Closest enemy finder ──
-local function getClosestEnemy()
-    local center  = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local maxDist = 150
-    local target  = nil
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer
-           and player.Character
-           and player.Character:FindFirstChild("Head")
-           and player.Character:FindFirstChild("Humanoid")
-           and player.Character.Humanoid.Health > 0
-        then
-            if player.Team ~= LocalPlayer.Team then
-                local headPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
-                if onScreen then
-                    local dist = (center - Vector2.new(headPos.X, headPos.Y)).Magnitude
-                    if dist < maxDist and isVisible(player.Character.Head) then
-                        maxDist = dist
-                        target  = player.Character.Head
-                    end
-                end
-            end
-        end
-    end
-    return target, maxDist  -- also return distance so AutoShoot can use it
-end
+if LocalPlayer.Character then OnChar(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(OnChar)
 
-------------------------------------------------
--- 213ms reaction-time variables
-------------------------------------------------
--- "Alpha" controls how smoothly the aimbot blends toward the target each frame.
--- We simulate a ~213 ms reaction by starting the aim slowly then accelerating.
-local REACTION_TIME  = 0.210   -- seconds of initial "human lag"
-local BASE_LERP      = 0.06    -- very gentle initial curve
-local PEAK_LERP      = 0.18    -- max speed after reaction delay has passed
-local aimbotTimer    = 0       -- time since last target acquisition
-local lastTarget     = nil
-
--- Tiny FOV for auto-shoot: if crosshair is THIS close to enemy head center
-local AUTOSHOOT_FOV  = 40      -- pixels from screen center
-local autoShootTimer = 0       -- anti-spam timer for auto-fire
-
-RunService.RenderStepped:Connect(function(dt)
-    ----------------------------------------------------
-    -- Smooth Legit Aimbot with 213ms reaction lag
-    ----------------------------------------------------
-    if _G.LegitAimbot then
-        local isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-                      or UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonL2)
-
-        if isAiming then
-            local targetHead, dist = getClosestEnemy()
-            if targetHead then
-                -- Reset timer when swapping targets (human-like re-flick)
-                if targetHead ~= lastTarget then
-                    aimbotTimer = 0
-                    lastTarget  = targetHead
-                end
-
-                aimbotTimer = aimbotTimer + dt
-
-                -- Lerp alpha ramps up after reaction time has elapsed
-                local progress = math.clamp(aimbotTimer / REACTION_TIME, 0, 1)
-                local alpha    = BASE_LERP + (PEAK_LERP - BASE_LERP) * (progress * progress)
-
-                local goal = CFrame.new(Camera.CFrame.Position, targetHead.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(goal, alpha)
-            else
-                lastTarget  = nil
-                aimbotTimer = 0
-            end
-        else
-            lastTarget  = nil
-            aimbotTimer = 0
-        end
-    end
-
-    ----------------------------------------------------
-    -- Auto Shoot  (fires when crosshair overlaps enemy)
-    ----------------------------------------------------
-    if _G.AutoShoot then
-        autoShootTimer = autoShootTimer - dt
-        if autoShootTimer <= 0 then
-            local targetHead, dist = getClosestEnemy()
-            if targetHead and dist < AUTOSHOOT_FOV then
-                -- Simulate LMB click to fire the weapon
-                pcall(function()
-                    local VIM = game:GetService("VirtualInputManager")
-                    VIM:SendMouseButtonEvent(0, 0, 1, true,  game, 0) -- Fire
-                    task.wait(0.015) -- Tiny click duration
-                    VIM:SendMouseButtonEvent(0, 0, 1, false, game, 0) -- Release
-                end)
-                autoShootTimer = 0.03 -- Very fast firing delay
-            end
+RunService.Stepped:Connect(function()
+    if _G.QuotasConfig.Noclip and LocalPlayer.Character then
+        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
         end
     end
 end)
 
-------------------------------------------------
--- Startup Notification
-------------------------------------------------
-pcall(function()
-	game:GetService("StarterGui"):SetCore("SendNotification", {
-		Title = "⚡ Arsenal Hub v2.0",
-		Text  = "Cyberpunk Edition loaded! [Right Shift] to open.",
-		Duration = 8
-	})
+-- Flying Logic
+local bv, bg
+RunService.RenderStepped:Connect(function()
+    if _G.QuotasConfig.Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if not bv then
+            bv = Instance.new("BodyVelocity", LocalPlayer.Character.HumanoidRootPart)
+            bg = Instance.new("BodyGyro", LocalPlayer.Character.HumanoidRootPart)
+            bv.MaxForce = Vector3.new(1,1,1) * 10^6
+            bg.MaxTorque = Vector3.new(1,1,1) * 10^6
+        end
+        bg.CFrame = Camera.CFrame
+        local dir = Vector3.new(0,0,0)
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0,1,0) end
+        bv.Velocity = dir * _G.QuotasConfig.FlySpeed
+    else
+        if bv then bv:Destroy() bv = nil end
+        if bg then bg:Destroy() bg = nil end
+    end
 end)
+
+print("⚡ Quotas Hub Loaded Successfully! ⚡")
