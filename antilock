@@ -62,7 +62,7 @@ uis.InputBegan:Connect(function(a, t)
     end
 end)
 
---// SECRET CODE SYSTEM (331010 in 5 seconds)
+--// SECRET CODE SYSTEM (FIXED 331010)
 local sequence = {"Three","Three","One","Zero","One","Zero"}
 local inputBuffer = {}
 local lastInputTime = 0
@@ -72,36 +72,30 @@ uis.InputBegan:Connect(function(input, gp)
     if gp then return end
 
     local key = input.KeyCode.Name
-    if key == "One" or key == "Zero" or key == "Three" then
-        
-        local currentTime = tick()
+    if key ~= "One" and key ~= "Zero" and key ~= "Three" then return end
 
-        -- reset if too slow
-        if currentTime - lastInputTime > maxDelay then
-            inputBuffer = {}
+    local currentTime = tick()
+
+    -- reset if too slow
+    if currentTime - lastInputTime > maxDelay then
+        inputBuffer = {}
+    end
+
+    lastInputTime = currentTime
+    table.insert(inputBuffer, key)
+
+    -- step-by-step check
+    for i = 1, #inputBuffer do
+        if inputBuffer[i] ~= sequence[i] then
+            inputBuffer = {} -- reset if wrong
+            return
         end
+    end
 
-        lastInputTime = currentTime
-        table.insert(inputBuffer, key)
-
-        -- trim buffer
-        if #inputBuffer > #sequence then
-            table.remove(inputBuffer, 1)
-        end
-
-        -- check match
-        local match = true
-        for i = 1, #sequence do
-            if inputBuffer[i] ~= sequence[i] then
-                match = false
-                break
-            end
-        end
-
-        if match then
-            frame.Visible = not frame.Visible
-            inputBuffer = {}
-        end
+    -- full correct sequence
+    if #inputBuffer == #sequence then
+        frame.Visible = not frame.Visible
+        inputBuffer = {}
     end
 end)
 
