@@ -1,0 +1,126 @@
+--// SETTINGS
+getgenv().Desync = false
+getgenv().KeyBind = Enum.KeyCode.M
+getgenv().DirectionToShoot = "Up"
+
+--// LOADING SCREEN UI
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "PrimeLoader"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 300, 0, 150)
+frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0.4,0)
+title.Text = "PRIME DESYNC"
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+title.TextScaled = true
+
+local credit = Instance.new("TextLabel", frame)
+credit.Size = UDim2.new(1,0,0.2,0)
+credit.Position = UDim2.new(0,0,0.4,0)
+credit.Text = "by NHA[CSP] 😏"
+credit.TextColor3 = Color3.new(0.7,0.7,0.7)
+credit.BackgroundTransparency = 1
+credit.TextScaled = true
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(1,0,0.2,0)
+status.Position = UDim2.new(0,0,0.6,0)
+status.Text = "STATUS: OFF"
+status.TextColor3 = Color3.new(1,0,0)
+status.BackgroundTransparency = 1
+status.TextScaled = true
+
+local hint = Instance.new("TextLabel", frame)
+hint.Size = UDim2.new(1,0,0.2,0)
+hint.Position = UDim2.new(0,0,0.8,0)
+hint.Text = "Press M to Toggle"
+hint.TextColor3 = Color3.new(1,1,1)
+hint.BackgroundTransparency = 1
+hint.TextScaled = true
+
+--// INPUT
+local uis = game:GetService("UserInputService")
+
+-- toggle desync
+uis.InputBegan:Connect(function(a, t)
+    if not t and a.KeyCode == getgenv().KeyBind then
+        getgenv().Desync = not getgenv().Desync
+
+        if getgenv().Desync then
+            status.Text = "STATUS: ON"
+            status.TextColor3 = Color3.new(0,1,0)
+        else
+            status.Text = "STATUS: OFF"
+            status.TextColor3 = Color3.new(1,0,0)
+        end
+    end
+end)
+
+--// SECRET CODE SYSTEM (331010 in 5 seconds)
+local sequence = {"Three","Three","One","Zero","One","Zero"}
+local inputBuffer = {}
+local lastInputTime = 0
+local maxDelay = 5
+
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+
+    local key = input.KeyCode.Name
+    if key == "One" or key == "Zero" or key == "Three" then
+        
+        local currentTime = tick()
+
+        -- reset if too slow
+        if currentTime - lastInputTime > maxDelay then
+            inputBuffer = {}
+        end
+
+        lastInputTime = currentTime
+        table.insert(inputBuffer, key)
+
+        -- trim buffer
+        if #inputBuffer > #sequence then
+            table.remove(inputBuffer, 1)
+        end
+
+        -- check match
+        local match = true
+        for i = 1, #sequence do
+            if inputBuffer[i] ~= sequence[i] then
+                match = false
+                break
+            end
+        end
+
+        if match then
+            frame.Visible = not frame.Visible
+            inputBuffer = {}
+        end
+    end
+end)
+
+--// DIRECTION
+getgenv().Direction = Vector3.new(0,1,0)
+
+--// MAIN LOOP
+game:GetService("RunService").Heartbeat:Connect(function()
+    if getgenv().Desync then
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            local old = hrp.Velocity
+
+            hrp.Velocity = getgenv().Direction * (2^17)
+
+            game:GetService("RunService").RenderStepped:Wait()
+
+            hrp.Velocity = old
+        end
+    end
+end)
