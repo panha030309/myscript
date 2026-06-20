@@ -68,6 +68,10 @@ local inputBuffer = {}
 local lastInputTime = 0
 local maxDelay = 5
 
+local function resetBuffer()
+    inputBuffer = {}
+end
+
 uis.InputBegan:Connect(function(input, gp)
     if gp then return end
 
@@ -78,24 +82,24 @@ uis.InputBegan:Connect(function(input, gp)
 
     -- reset if too slow
     if currentTime - lastInputTime > maxDelay then
-        inputBuffer = {}
+        resetBuffer()
     end
 
     lastInputTime = currentTime
     table.insert(inputBuffer, key)
 
-    -- step-by-step check
-    for i = 1, #inputBuffer do
-        if inputBuffer[i] ~= sequence[i] then
-            inputBuffer = {} -- reset if wrong
-            return
-        end
+    local index = #inputBuffer
+
+    -- check only current step (FIX)
+    if inputBuffer[index] ~= sequence[index] then
+        resetBuffer()
+        return
     end
 
     -- full correct sequence
-    if #inputBuffer == #sequence then
+    if index == #sequence then
         frame.Visible = not frame.Visible
-        inputBuffer = {}
+        resetBuffer()
     end
 end)
 
