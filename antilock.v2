@@ -1,0 +1,251 @@
+--// SETTINGS
+getgenv().Desync = false
+getgenv().KeyBind = Enum.KeyCode.M
+getgenv().DirectionToShoot = "Up"
+
+--// SERVICES
+local player = game.Players.LocalPlayer
+local uis = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+--// GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "PrimeLoader"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 300, 0, 180)
+frame.Position = UDim2.new(0.5, -150, 0.5, -90)
+frame.BackgroundColor3 = Color3.fromRGB(25, 0, 35)
+frame.BorderSizePixel = 0
+
+-- DESIGN
+local gradient = Instance.new("UIGradient", frame)
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20,0,30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(60,0,80))
+}
+gradient.Rotation = 45
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(255,215,0)
+stroke.Thickness = 1.5
+
+-- TEXT
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0.3,0)
+title.Text = "PRIME DESYNC"
+title.TextColor3 = Color3.fromRGB(255,215,0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBlack
+title.TextScaled = true
+
+local credit = Instance.new("TextLabel", frame)
+credit.Size = UDim2.new(1,0,0.2,0)
+credit.Position = UDim2.new(0,0,0.3,0)
+credit.Text = "by NHA[CSP] 😏"
+credit.TextColor3 = Color3.fromRGB(200,170,80)
+credit.BackgroundTransparency = 1
+credit.Font = Enum.Font.Gotham
+credit.TextScaled = true
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(1,0,0.2,0)
+status.Position = UDim2.new(0,0,0.5,0)
+status.Text = "STATUS: OFF"
+status.TextColor3 = Color3.new(1,0,0)
+status.BackgroundTransparency = 1
+status.Font = Enum.Font.GothamBold
+status.TextScaled = true
+
+local hint = Instance.new("TextLabel", frame)
+hint.Size = UDim2.new(1,0,0.15,0)
+hint.Position = UDim2.new(0,0,0.7,0)
+hint.TextColor3 = Color3.fromRGB(180,180,180)
+hint.BackgroundTransparency = 1
+hint.Font = Enum.Font.Gotham
+hint.TextScaled = true
+
+-- BUTTON
+local changeBtn = Instance.new("TextButton", frame)
+changeBtn.Size = UDim2.new(1,0,0.15,0)
+changeBtn.Position = UDim2.new(0,0,0.85,0)
+changeBtn.Text = "Change Keybind"
+changeBtn.TextColor3 = Color3.fromRGB(255,215,0)
+changeBtn.BackgroundColor3 = Color3.fromRGB(40,0,60)
+changeBtn.TextScaled = true
+
+Instance.new("UICorner", changeBtn).CornerRadius = UDim.new(0,8)
+
+local btnStroke = Instance.new("UIStroke", changeBtn)
+btnStroke.Color = Color3.fromRGB(255,215,0)
+
+changeBtn.MouseEnter:Connect(function()
+    TweenService:Create(changeBtn, TweenInfo.new(0.2), {
+        BackgroundColor3 = Color3.fromRGB(70,0,100)
+    }):Play()
+end)
+
+changeBtn.MouseLeave:Connect(function()
+    TweenService:Create(changeBtn, TweenInfo.new(0.2), {
+        BackgroundColor3 = Color3.fromRGB(40,0,60)
+    }):Play()
+end)
+
+-- DRAG SYSTEM
+local dragging, dragInput, mousePos, framePos
+
+local function updateDrag(input)
+    local delta = input.Position - mousePos
+    frame.Position = UDim2.new(
+        framePos.X.Scale,
+        framePos.X.Offset + delta.X,
+        framePos.Y.Scale,
+        framePos.Y.Offset + delta.Y
+    )
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        mousePos = input.Position
+        framePos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+uis.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateDrag(input)
+    end
+end)
+
+-- KEYBIND SYSTEM
+local changingKeybind = false
+
+local function updateHint()
+    hint.Text = "Toggle Key: "..getgenv().KeyBind.Name
+end
+updateHint()
+
+changeBtn.MouseButton1Click:Connect(function()
+    changingKeybind = true
+    hint.Text = "Press any key..."
+end)
+
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+
+    if changingKeybind then
+        if input.KeyCode ~= Enum.KeyCode.Unknown then
+            getgenv().KeyBind = input.KeyCode
+            changingKeybind = false
+            updateHint()
+        end
+        return
+    end
+
+    if input.KeyCode == getgenv().KeyBind then
+        getgenv().Desync = not getgenv().Desync
+
+        if getgenv().Desync then
+            status.Text = "STATUS: ON"
+            status.TextColor3 = Color3.new(0,1,0)
+        else
+            status.Text = "STATUS: OFF"
+            status.TextColor3 = Color3.new(1,0,0)
+        end
+    end
+end)
+
+-- BLUR
+local blur = Lighting:FindFirstChild("PrimeBlur") or Instance.new("BlurEffect")
+blur.Name = "PrimeBlur"
+blur.Size = 0
+blur.Parent = Lighting
+
+-- SECRET CODE
+local sequence = {"Three","Three","One","Zero","One","Zero"}
+local buffer = {}
+local last = 0
+
+local visible = true
+local originalSize = frame.Size
+local hiddenSize = UDim2.new(0,0,0,0)
+
+local function showUI()
+    gui.Enabled = true
+    frame.Size = hiddenSize
+
+    TweenService:Create(blur, TweenInfo.new(0.3), {Size = 20}):Play()
+    TweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+        Size = originalSize
+    }):Play()
+end
+
+local function hideUI()
+    TweenService:Create(blur, TweenInfo.new(0.3), {Size = 0}):Play()
+    TweenService:Create(frame, TweenInfo.new(0.25), {
+        Size = hiddenSize
+    }):Play()
+
+    task.wait(0.25)
+    gui.Enabled = false
+end
+
+uis.InputBegan:Connect(function(input, gp)
+    if gp then return end
+
+    local key = input.KeyCode.Name
+    if key ~= "One" and key ~= "Zero" and key ~= "Three" then return end
+
+    if tick() - last > 5 then
+        buffer = {}
+    end
+
+    last = tick()
+    table.insert(buffer, key)
+
+    local i = #buffer
+    if buffer[i] ~= sequence[i] then
+        buffer = {}
+        return
+    end
+
+    if i == #sequence then
+        visible = not visible
+        if visible then showUI() else hideUI() end
+        buffer = {}
+    end
+end)
+
+-- DIRECTION
+getgenv().Direction = Vector3.new(0,1,0)
+
+-- MAIN LOOP
+game:GetService("RunService").Heartbeat:Connect(function()
+    if getgenv().Desync then
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            local old = hrp.Velocity
+
+            hrp.Velocity = getgenv().Direction * (2^17)
+            game:GetService("RunService").RenderStepped:Wait()
+            hrp.Velocity = old
+        end
+    end
+end)
