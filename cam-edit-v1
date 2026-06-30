@@ -3,55 +3,97 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+
 print("==================================================")
 print("[!] LOADING CINEMATIC CAR ENGINE PRO...")
-task.wait(0.2)
-print("[+] BRACKET ENVIRONMENT CONFIGURED")
+task.wait(0.1)
+print("[+] BYPASS: DRIVING EMPIRE ANTIOVERRIDE ACTIVE")
 print("[+] TARGET PLATFORM: XENO SUITE DEPLOYED")
-print("[+] SYSTEM PRODUCED BY: Nha331010")
-print("[+] SUCCESS: SYSTEM OPERATIONAL")
+print("[+] CHIEF ARCHITECT CREDITS: NS331010")
+print("[+] STATUS: SYSTEM OPERATIONAL")
 print("==================================================")
-local Library = loadstring(game:HttpGet("https://githubusercontent.com"))()
-local Window = Library:CreateWindow({
-    Name = "CINEMATIC SUITE PRO",
-    Dimensions = UDim2.new(0, 280, 0, 460),
-    Theme = "Dark"
-})
-local MainTab = Window:CreateTab("Camera Controls")
-local ConfigTab = Window:CreateTab("System Info")
+
 local currentConnection = nil
+local cameraLockConnection = nil
 local isRunning = false
+local isPaused = false
+local loopEnabled = true
 local currentMode = ""
 local angle = 0
 local uiVisible = true
+
+local targetCFrame = Camera.CFrame
+local lerpSpeed = 0.08
+local transitionMode = false
+local transitionTime = 0
+
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "CinematicProSuite"
+MainGui.ResetOnSpawn = false
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+MainGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 240, 0, 410)
+Frame.Position = UDim2.new(0.05, 0, 0.2, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = MainGui
+
+local StrokeMain = Instance.new("UIStroke")
+StrokeMain.Color = Color3.fromRGB(45, 45, 45)
+StrokeMain.Thickness = 1
+StrokeMain.Parent = Frame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+Title.Text = "  CINEMATIC SUITE PRO"
+Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+Title.TextSize = 13
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Frame
+
+local CreditLabel = Instance.new("TextLabel")
+CreditLabel.Size = UDim2.new(1, -10, 0, 20)
+CreditLabel.Position = UDim2.new(0, 5, 0, 30)
+CreditLabel.BackgroundTransparency = 1
+CreditLabel.Text = "By NS331010"
+CreditLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
+CreditLabel.TextSize = 11
+CreditLabel.Font = Enum.Font.SourceSansItalic
+CreditLabel.TextXAlignment = Enum.TextXAlignment.Right
+CreditLabel.Parent = Frame
+
 local WatermarkGui = Instance.new("ScreenGui")
 WatermarkGui.Name = "CinematicProWatermark"
 WatermarkGui.ResetOnSpawn = false
 WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 WatermarkGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
 local WatermarkLabel = Instance.new("TextLabel")
 WatermarkLabel.Size = UDim2.new(0, 240, 0, 25)
 WatermarkLabel.Position = UDim2.new(0, 15, 0, 15)
 WatermarkLabel.BackgroundTransparency = 0.5
 WatermarkLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-WatermarkLabel.Text = "  [ PRO CAMERA SYSTEM BY NHA331010 ]"
+WatermarkLabel.Text = "  [ PRO CAMERA SYSTEM BY NS331010 ]"
 WatermarkLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
 WatermarkLabel.TextSize = 11
 WatermarkLabel.Font = Enum.Font.Code
 WatermarkLabel.TextXAlignment = Enum.TextXAlignment.Left
 WatermarkLabel.Parent = WatermarkGui
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(0, 255, 150)
-Stroke.Thickness = 1
-Stroke.Parent = WatermarkLabel
+
+local StrokeW = Instance.new("UIStroke")
+StrokeW.Color = Color3.fromRGB(0, 255, 150)
+StrokeW.Thickness = 1
+StrokeW.Parent = WatermarkLabel
+
 local function toggleUISuite()
     uiVisible = not uiVisible
-    local coreGui = game:GetService("CoreGui")
-    local mainUI = coreGui:FindFirstChild("ScreenGui") or LocalPlayer.PlayerGui:FindFirstChild("ScreenGui")
-    if mainUI then
-        mainUI.Enabled = uiVisible
-    end
+    Frame.Visible = uiVisible
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -62,138 +104,174 @@ end)
 
 local function stopCamera()
     isRunning = false
+    isPaused = false
     currentMode = ""
+    transitionMode = false
+    
+    if cameraLockConnection then
+        cameraLockConnection:Disconnect()
+        cameraLockConnection = nil
+    end
     if currentConnection then
         currentConnection:Disconnect()
         currentConnection = nil
     end
+    
     Camera.CameraType = Enum.CameraType.Custom
+    Camera.FieldOfView = 70
 end
 
 local function getTargetVehicle()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        if LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.SeatPart then
-            return LocalPlayer.Character.Humanoid.SeatPart.Parent
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        local character = LocalPlayer.Character
+        local seat = character.Humanoid.SeatPart
+        if seat and (seat:IsA("VehicleSeat") or seat:IsA("Seat")) then
+            return seat
+        end
+        for _, obj in pairs(character:GetDescendants()) do
+            if obj:IsA("VehicleSeat") or obj:IsA("Seat") then
+                if obj.Occupant == character.Humanoid then
+                    return obj
+                end
+            end
         end
     end
     return nil
 end
 
 local function startTour(mode)
-    stopCamera()
-    local vehicle = getTargetVehicle()
-    if not vehicle or not vehicle:FindFirstChild("DriveSeat") then 
-        warn("[SYSTEM ERROR]: No active vehicle detected. Sit in the vehicle driver seat.")
+    local driveSeat = getTargetVehicle()
+    if not driveSeat then 
+        warn("[SYSTEM ERROR]: You must sit in the car's driver seat first!")
         return 
     end
     
-    local targetPart = vehicle.DriveSeat
+    if isRunning then
+        currentMode = mode
+        angle = 0
+        transitionMode = true
+        transitionTime = 0
+        return
+    end
+
+    if cameraLockConnection then cameraLockConnection:Disconnect() end
     Camera.CameraType = Enum.CameraType.Scriptable
+    
+    cameraLockConnection = Camera:GetPropertyChangedSignal("CameraType"):Connect(function()
+        if isRunning and Camera.CameraType ~= Enum.CameraType.Scriptable then
+            Camera.CameraType = Enum.CameraType.Scriptable
+        end
+    end)
+
     isRunning = true
+    isPaused = false
     currentMode = mode
     angle = 0
+    targetCFrame = Camera.CFrame
+    transitionMode = false
 
     currentConnection = RunService.RenderStepped:Connect(function(dt)
-        if not isRunning or not targetPart or not targetPart.Parent then 
+        if not isRunning or not driveSeat or not driveSeat.Parent then 
             stopCamera()
             return 
         end
         
-        angle = angle + (dt * 0.4) -- Smoothed rotational velocity factor
-        local targetPos = targetPart.Position
+        if not isPaused then
+            angle = angle + (dt * 0.4)
+            if not loopEnabled and angle >= (math.pi * 2) then
+                stopCamera()
+                return
+            end
+        end
+        
+        local targetPos = driveSeat.Position
+        local calculatedFrame = Camera.CFrame
         
         if currentMode == "Forza Orbit" then
             local offset = Vector3.new(math.sin(angle) * 14, 3.5, math.cos(angle) * 14)
-            Camera.CFrame = CFrame.new(targetPos + offset, targetPos + Vector3.new(0, 0.8, 0))
+            calculatedFrame = CFrame.new(targetPos + offset, targetPos + Vector3.new(0, 0.8, 0))
             
         elseif currentMode == "Standard Tour" then
             local offset = Vector3.new(math.sin(angle * 0.6) * 18, 5 + math.sin(angle) * 1.5, math.cos(angle * 0.6) * 18)
-            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+            calculatedFrame = CFrame.new(targetPos + offset, targetPos)
             
         elseif currentMode == "Side Swing" then
             local offset = Vector3.new(16, 2.5, math.sin(angle * 1.2) * 7)
-            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+            calculatedFrame = CFrame.new(targetPos + offset, targetPos)
             
         elseif currentMode == "Rear Follow" then
-            local backward = -targetPart.CFrame.LookVector
-            local offset = (backward * 15) + Vector3.new(0, 3.5, 0) + (targetPart.CFrame.RightVector * math.sin(angle) * 1.5)
-            Camera.CFrame = CFrame.new(targetPos + offset, targetPos + (targetPart.CFrame.LookVector * 8))
+            local backward = -driveSeat.CFrame.LookVector
+            local offset = (backward * 15) + Vector3.new(0, 3.5, 0) + (driveSeat.CFrame.RightVector * math.sin(angle) * 1.5)
+            calculatedFrame = CFrame.new(targetPos + offset, targetPos + (driveSeat.CFrame.LookVector * 8))
             
         elseif currentMode == "Top View Circle" then
             local offset = Vector3.new(math.sin(angle) * 9, 20, math.cos(angle) * 9)
-            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+            calculatedFrame = CFrame.new(targetPos + offset, targetPos)
         end
+        
+        targetCFrame = calculatedFrame
+        
+        local currentSpeed = lerpSpeed
+        if transitionMode then
+            transitionTime = transitionTime + dt
+            currentSpeed = lerpSpeed * math.clamp(transitionTime * 2, 0.5, 1)
+            if transitionTime >= 1.5 then
+                transitionMode = false
+            end
+        end
+        
+        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, currentSpeed)
     end)
 end
 
-MainTab:CreateButton({
-    Name = "⏸ Pause System Sequence",
-    Callback = function()
-        if currentConnection then
-            currentConnection:Disconnect()
-            currentConnection = nil
-            print("[INFO]: Camera matrix frame locked.")
+local btnCount = 0
+local function createButton(name, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -20, 0, 30)
+    Btn.Position = UDim2.new(0, 10, 0, 55 + (btnCount * 34))
+    Btn.BackgroundColor3 = Color3.fromRGB(33, 33, 33)
+    Btn.Text = name
+    Btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Btn.TextSize = 12
+    Btn.Font = Enum.Font.SourceSansBold
+    Btn.BorderSizePixel = 0
+    Btn.Parent = Frame
+    
+    local BStroke = Instance.new("UIStroke")
+    BStroke.Color = Color3.fromRGB(50, 50, 50)
+    BStroke.Thickness = 1
+    BStroke.Parent = Btn
+    
+    Btn.MouseButton1Click:Connect(callback)
+    btnCount = btnCount + 1
+    return Btn
+end
+
+createButton("🎬 Forza Orbit", function() startTour("Forza Orbit") end)
+createButton("🎥 Standard Tour", function() startTour("Standard Tour") end)
+createButton("↔️ Side Swing", function() startTour("Side Swing") end)
+createButton("🚗 Rear Follow", function() startTour("Rear Follow") end)
+createButton("⬆️ Top View Circle", function() startTour("Top View Circle") end)
+createButton("⏸ Pause", function() if isRunning then isPaused = not isPaused end end)
+createButton("🛑 Stop", function() stopCamera() end)
+
+local ToggleBtn = createButton("🔁 Loop: ON", function()
+    loopEnabled = not loopEnabled
+    local toggleText = loopEnabled and "🔁 Loop: ON" or "🔁 Loop: OFF"
+    for _, child in pairs(Frame:GetChildren()) do
+        if child:IsA("TextButton") and (child.Text == "🔁 Loop: ON" or child.Text == "🔁 Loop: OFF") then
+            child.Text = toggleText
         end
     end
-})
+end)
 
-MainTab:CreateButton({
-    Name = "🛑 Deactivate & Reset Camera",
-    Callback = function()
-        stopCamera()
-        print("[INFO]: Camera control returned to client defaults.")
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🎬 Track: Forza Orbit",
-    Callback = function()
-        startTour("Forza Orbit")
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🎬 Track: Standard Tour",
-    Callback = function()
-        startTour("Standard Tour")
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🎬 Track: Side Swing",
-    Callback = function()
-        startTour("Side Swing")
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🎬 Track: Rear Follow Track",
-    Callback = function()
-        startTour("Rear Follow")
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🎬 Track: Top-Down Orbital",
-    Callback = function()
-        startTour("Top View Circle")
-    end
-})
-MainTab:CreateLabel({
-    Text = "Recording Hotkey: [ Left Control ] to Hide UI"
-})
-ConfigTab:CreateLabel({
-    Text = "SYSTEM ARCHITECTURE: Pro Edition"
-})
-ConfigTab:CreateLabel({
-    Text = "CHIEF ARCHITECT: Nha331010"
-})
-ConfigTab:CreateLabel({
-    Text = "EXECUTOR LAYER: Xeno Verified"
-})
-ConfigTab:CreateLabel({
-    Text = "GRAPHICS LAYER: Interpolated Smooth Cam"
-})
-ConfigTab:CreateLabel({
-    Text = "DEVELOPED FOR: Premium Video Content Creation"
-})
+local HotkeyLabel = Instance.new("TextLabel")
+HotkeyLabel.Size = UDim2.new(1, -20, 0, 20)
+HotkeyLabel.Position = UDim2.new(0, 10, 0, 385)
+HotkeyLabel.BackgroundTransparency = 1
+HotkeyLabel.Text = "Hotkey: [ Left Control ] to Hide UI"
+HotkeyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HotkeyLabel.TextSize = 11
+HotkeyLabel.Font = Enum.Font.SourceSans
+HotkeyLabel.TextXAlignment = Enum.TextXAlignment.Center
+HotkeyLabel.Parent = Frame
