@@ -1,0 +1,199 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+print("==================================================")
+print("[!] LOADING CINEMATIC CAR ENGINE PRO...")
+task.wait(0.2)
+print("[+] BRACKET ENVIRONMENT CONFIGURED")
+print("[+] TARGET PLATFORM: XENO SUITE DEPLOYED")
+print("[+] SYSTEM PRODUCED BY: Nha331010")
+print("[+] SUCCESS: SYSTEM OPERATIONAL")
+print("==================================================")
+local Library = loadstring(game:HttpGet("https://githubusercontent.com"))()
+local Window = Library:CreateWindow({
+    Name = "CINEMATIC SUITE PRO",
+    Dimensions = UDim2.new(0, 280, 0, 460),
+    Theme = "Dark"
+})
+local MainTab = Window:CreateTab("Camera Controls")
+local ConfigTab = Window:CreateTab("System Info")
+local currentConnection = nil
+local isRunning = false
+local currentMode = ""
+local angle = 0
+local uiVisible = true
+local WatermarkGui = Instance.new("ScreenGui")
+WatermarkGui.Name = "CinematicProWatermark"
+WatermarkGui.ResetOnSpawn = false
+WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+WatermarkGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local WatermarkLabel = Instance.new("TextLabel")
+WatermarkLabel.Size = UDim2.new(0, 240, 0, 25)
+WatermarkLabel.Position = UDim2.new(0, 15, 0, 15)
+WatermarkLabel.BackgroundTransparency = 0.5
+WatermarkLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+WatermarkLabel.Text = "  [ PRO CAMERA SYSTEM BY NHA331010 ]"
+WatermarkLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+WatermarkLabel.TextSize = 11
+WatermarkLabel.Font = Enum.Font.Code
+WatermarkLabel.TextXAlignment = Enum.TextXAlignment.Left
+WatermarkLabel.Parent = WatermarkGui
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(0, 255, 150)
+Stroke.Thickness = 1
+Stroke.Parent = WatermarkLabel
+local function toggleUISuite()
+    uiVisible = not uiVisible
+    local coreGui = game:GetService("CoreGui")
+    local mainUI = coreGui:FindFirstChild("ScreenGui") or LocalPlayer.PlayerGui:FindFirstChild("ScreenGui")
+    if mainUI then
+        mainUI.Enabled = uiVisible
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.LeftControl then
+        toggleUISuite()
+    end
+end)
+
+local function stopCamera()
+    isRunning = false
+    currentMode = ""
+    if currentConnection then
+        currentConnection:Disconnect()
+        currentConnection = nil
+    end
+    Camera.CameraType = Enum.CameraType.Custom
+end
+
+local function getTargetVehicle()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.SeatPart then
+            return LocalPlayer.Character.Humanoid.SeatPart.Parent
+        end
+    end
+    return nil
+end
+
+local function startTour(mode)
+    stopCamera()
+    local vehicle = getTargetVehicle()
+    if not vehicle or not vehicle:FindFirstChild("DriveSeat") then 
+        warn("[SYSTEM ERROR]: No active vehicle detected. Sit in the vehicle driver seat.")
+        return 
+    end
+    
+    local targetPart = vehicle.DriveSeat
+    Camera.CameraType = Enum.CameraType.Scriptable
+    isRunning = true
+    currentMode = mode
+    angle = 0
+
+    currentConnection = RunService.RenderStepped:Connect(function(dt)
+        if not isRunning or not targetPart or not targetPart.Parent then 
+            stopCamera()
+            return 
+        end
+        
+        angle = angle + (dt * 0.4) -- Smoothed rotational velocity factor
+        local targetPos = targetPart.Position
+        
+        if currentMode == "Forza Orbit" then
+            local offset = Vector3.new(math.sin(angle) * 14, 3.5, math.cos(angle) * 14)
+            Camera.CFrame = CFrame.new(targetPos + offset, targetPos + Vector3.new(0, 0.8, 0))
+            
+        elseif currentMode == "Standard Tour" then
+            local offset = Vector3.new(math.sin(angle * 0.6) * 18, 5 + math.sin(angle) * 1.5, math.cos(angle * 0.6) * 18)
+            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+            
+        elseif currentMode == "Side Swing" then
+            local offset = Vector3.new(16, 2.5, math.sin(angle * 1.2) * 7)
+            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+            
+        elseif currentMode == "Rear Follow" then
+            local backward = -targetPart.CFrame.LookVector
+            local offset = (backward * 15) + Vector3.new(0, 3.5, 0) + (targetPart.CFrame.RightVector * math.sin(angle) * 1.5)
+            Camera.CFrame = CFrame.new(targetPos + offset, targetPos + (targetPart.CFrame.LookVector * 8))
+            
+        elseif currentMode == "Top View Circle" then
+            local offset = Vector3.new(math.sin(angle) * 9, 20, math.cos(angle) * 9)
+            Camera.CFrame = CFrame.new(targetPos + offset, targetPos)
+        end
+    end)
+end
+
+MainTab:CreateButton({
+    Name = "⏸ Pause System Sequence",
+    Callback = function()
+        if currentConnection then
+            currentConnection:Disconnect()
+            currentConnection = nil
+            print("[INFO]: Camera matrix frame locked.")
+        end
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🛑 Deactivate & Reset Camera",
+    Callback = function()
+        stopCamera()
+        print("[INFO]: Camera control returned to client defaults.")
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎬 Track: Forza Orbit",
+    Callback = function()
+        startTour("Forza Orbit")
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎬 Track: Standard Tour",
+    Callback = function()
+        startTour("Standard Tour")
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎬 Track: Side Swing",
+    Callback = function()
+        startTour("Side Swing")
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎬 Track: Rear Follow Track",
+    Callback = function()
+        startTour("Rear Follow")
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🎬 Track: Top-Down Orbital",
+    Callback = function()
+        startTour("Top View Circle")
+    end
+})
+MainTab:CreateLabel({
+    Text = "Recording Hotkey: [ Left Control ] to Hide UI"
+})
+ConfigTab:CreateLabel({
+    Text = "SYSTEM ARCHITECTURE: Pro Edition"
+})
+ConfigTab:CreateLabel({
+    Text = "CHIEF ARCHITECT: Nha331010"
+})
+ConfigTab:CreateLabel({
+    Text = "EXECUTOR LAYER: Xeno Verified"
+})
+ConfigTab:CreateLabel({
+    Text = "GRAPHICS LAYER: Interpolated Smooth Cam"
+})
+ConfigTab:CreateLabel({
+    Text = "DEVELOPED FOR: Premium Video Content Creation"
+})
